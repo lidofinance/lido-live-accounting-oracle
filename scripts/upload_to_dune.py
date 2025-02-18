@@ -67,8 +67,13 @@ def upload_to_dune(df):
 
 def main():
     try:
-        # Optional: Print to verify the DUNE_API_KEY is loaded
-        print("DUNE_API_KEY present:", bool(os.getenv("DUNE_API_KEY")))
+        # Verify DUNE_API_KEY is present and not empty
+        dune_api_key = os.getenv("DUNE_API_KEY")
+        if not dune_api_key:
+            raise ValueError("DUNE_API_KEY environment variable is missing or empty")
+        
+        # Optional: Print to verify the DUNE_API_KEY is loaded (only show length for security)
+        print(f"DUNE_API_KEY present with length: {len(dune_api_key)}")
         
         # Read the CSV file
         print("Reading CSV file...")

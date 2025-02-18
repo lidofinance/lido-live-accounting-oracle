@@ -32,7 +32,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install dune-client python-dotenv pandas requests
+          pip install dune-analytics-client python-dotenv pandas requests
 
       - name: Create .env file
         run: |
@@ -43,7 +43,7 @@ jobs:
           echo "WITHDRAWAL_VAULT_ADDRESS=${{ vars.WITHDRAWAL_VAULT_ADDRESS }}" >> .env
           echo "EL_REWARDS_VAULT_ADDRESS=${{ vars.EL_REWARDS_VAULT_ADDRESS }}" >> .env
           echo "BURNER_ADDRESS=${{ vars.BURNER_ADDRESS }}" >> .env
-          echo "DUNE_API_KEY=${{ vars.DUNE_API_KEY }}" >> .env
+          echo "DUNE_API_KEY=${{ secrets.DUNE_API_KEY }}" >> .env
 
       - name: Generate Lido Report
         run: npm run report
