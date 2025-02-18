@@ -36,6 +36,13 @@ export const main = async () => {
   // Create an ethers provider using the custom RPC URL.
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
+  // After creating the provider but before making contract calls
+  // Get latest block information
+  const latestBlock = await provider.getBlock('latest');
+  if (!latestBlock) {
+    throw new Error("Failed to fetch latest block");
+  }
+
   // Constants and defaults
   const ONE_GWEI = ethers.BigNumber.from("1000000000");
   const DEFAULT_CL_DIFF = ethers.utils.parseEther("0"); 
@@ -117,6 +124,9 @@ export const main = async () => {
 
   // 8) Assemble the final report object.
   const report: Record<string, any> = {
+    "Block Number": latestBlock.number.toString(),
+    "Block Timestamp": latestBlock.timestamp.toString(),
+    "Block Hash": latestBlock.hash,
     "Consensus Version": consensusVersionBN.toString(),
     "Reference Slot": refSlotBN.toString(),
     "CL Balance (Gwei)": clBalanceGwei.toString(),
