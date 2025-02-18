@@ -1,5 +1,12 @@
 import dotenv from "dotenv";
-import { ethers } from "ethers";
+import { 
+  BigNumber, 
+  getAddress, 
+  parseEther,
+  formatEther,
+  JsonRpcProvider,
+  Contract
+} from "ethers";
 import fs from "fs";
 
 // Load environment variables from .env
@@ -13,7 +20,7 @@ export const main = async () => {
     process.exit(1);
   }
 
-  // Validate and checksum all contract addresses using ethers.utils.getAddress.
+  // Validate and checksum all contract addresses using ethers' getAddress
   let hashConsensusAddr: string,
     lidoAddr: string,
     accountingOracleAddr: string,
@@ -22,33 +29,33 @@ export const main = async () => {
     burnerAddr: string;
 
   try {
-    hashConsensusAddr = ethers.utils.getAddress(process.env.HASH_CONSENSUS_ADDRESS!);
-    lidoAddr = ethers.utils.getAddress(process.env.LIDO_ADDRESS!);
-    accountingOracleAddr = ethers.utils.getAddress(process.env.ACCOUNTING_ORACLE_ADDRESS!);
-    withdrawalVaultAddr = ethers.utils.getAddress(process.env.WITHDRAWAL_VAULT_ADDRESS!);
-    elRewardsVaultAddr = ethers.utils.getAddress(process.env.EL_REWARDS_VAULT_ADDRESS!);
-    burnerAddr = ethers.utils.getAddress(process.env.BURNER_ADDRESS!);
+    hashConsensusAddr = getAddress(process.env.HASH_CONSENSUS_ADDRESS!);
+    lidoAddr = getAddress(process.env.LIDO_ADDRESS!);
+    accountingOracleAddr = getAddress(process.env.ACCOUNTING_ORACLE_ADDRESS!);
+    withdrawalVaultAddr = getAddress(process.env.WITHDRAWAL_VAULT_ADDRESS!);
+    elRewardsVaultAddr = getAddress(process.env.EL_REWARDS_VAULT_ADDRESS!);
+    burnerAddr = getAddress(process.env.BURNER_ADDRESS!);
   } catch (error) {
     console.error("Invalid Ethereum address in environment variables:", error);
     process.exit(1);
   }
 
   // Create an ethers provider using the custom RPC URL.
-  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  const provider = new JsonRpcProvider(rpcUrl);
 
   // Constants and defaults
-  const ONE_GWEI = ethers.BigNumber.from("1000000000");
-  const DEFAULT_CL_DIFF = ethers.utils.parseEther("10"); // 10 ETH diff to simulate CL balance change
-  const DEFAULT_CL_APPEARED_VALIDATORS = ethers.BigNumber.from("0");
+  const ONE_GWEI = BigNumber.from("1000000000");
+  const DEFAULT_CL_DIFF = parseEther("10");
+  const DEFAULT_CL_APPEARED_VALIDATORS = BigNumber.from(0);
   const DEFAULT_WITHDRAWAL_FINALIZATION_BATCHES: number[] = [];
   const DEFAULT_STAKING_MODULE_IDS: number[] = [];
   const DEFAULT_NUM_EXITED_VALIDATORS: number[] = [];
   const DEFAULT_IS_BUNKER_MODE = false;
   const DEFAULT_EXTRA_DATA_FORMAT = 0;
-  const DEFAULT_EXTRA_DATA_HASH = "0x" + "0".repeat(64); // 32 bytes of zeros in hex
+  const DEFAULT_EXTRA_DATA_HASH = "0x" + "0".repeat(64);
   const DEFAULT_EXTRA_DATA_ITEMS_COUNT = 0;
 
-  // Minimum ABIs for the required contract calls.
+  // Contract ABIs
   const hashConsensusABI = [
     "function getCurrentFrame() view returns (uint256)"
   ];
@@ -58,46 +65,37 @@ export const main = async () => {
   const accountingOracleABI = [
     "function getConsensusVersion() view returns (uint256)"
   ];
-
-  // Burner ABI, for shares requested to burn
   const burnerABI = [
     "function getSharesRequestedToBurn() view returns (uint256 coverShares, uint256 nonCoverShares)"
   ];
 
   // Instantiate contract instances using validated addresses.
-  const hashConsensus = new ethers.Contract(hashConsensusAddr, hashConsensusABI, provider);
-  const lido = new ethers.Contract(lidoAddr, lidoABI, provider);
-  const accountingOracle = new ethers.Contract(accountingOracleAddr, accountingOracleABI, provider);
-  const burner = new ethers.Contract(burnerAddr, burnerABI, provider);
+  const hashConsensus = new Contract(hashConsensusAddr, hashConsensusABI, provider);
+  const lido = new Contract(lidoAddr, lidoABI, provider);
+  const accountingOracle = new Contract(accountingOracleAddr, accountingOracleABI, provider);
+  const burner = new Contract(burnerAddr, burnerABI, provider);
 
   // 1) Fetch data from the hashConsensus contract.
   const currentFrameResult = await hashConsensus.getCurrentFrame();
-  // Handle different possible return types from getCurrentFrame
-  let refSlotBN: ethers.BigNumber;
+  let refSlotBN: BigNumber;
   if (currentFrameResult && currentFrameResult.refSlot !== undefined) {
-    // The contract returned an object with a refSlot property
     refSlotBN = currentFrameResult.refSlot;
   } else {
-    // The contract returned a BigNumber (or something else)
-    refSlotBN = ethers.BigNumber.isBigNumber(currentFrameResult)
+    refSlotBN = BigNumber.isBigNumber(currentFrameResult)
       ? currentFrameResult
-      : ethers.BigNumber.from("0"); // Fallback in case of unexpected data
+      : BigNumber.from("0");
   }
   if (refSlotBN.isZero()) {
-    console.warn("Warning: getCurrentFrame() returned 0 or an unexpected result. Please verify the contract.");
+    console.warn("Warning: getCurrentFrame() returned 0 or an unexpected result.");
   }
 
   // 2) Query beacon statistics from the Lido contract.
   const [beaconValidators, beaconBalance] = await lido.getBeaconStat();
-
-  // Calculate the "post‐CL" (consensus layer) balance by adding a simulated diff.
   const postCLBalance = beaconBalance.add(DEFAULT_CL_DIFF);
-  // Compute the new number of validators.
-  const postValidators = ethers.BigNumber.from(beaconValidators).add(DEFAULT_CL_APPEARED_VALIDATORS);
-  // Compute the CL balance in Gwei.
+  const postValidators = BigNumber.from(beaconValidators).add(DEFAULT_CL_APPEARED_VALIDATORS);
   const clBalanceGwei = postCLBalance.div(ONE_GWEI);
 
-  // 3) Query the ETH balances in the vault contracts (Withdrawal / EL Rewards).
+  // 3) Query the ETH balances in the vault contracts
   const withdrawalVaultBalanceBN = await provider.getBalance(withdrawalVaultAddr);
   const elRewardsVaultBalanceBN = await provider.getBalance(elRewardsVaultAddr);
 
@@ -105,15 +103,15 @@ export const main = async () => {
   const consensusVersionBN = await accountingOracle.getConsensusVersion();
 
   // 5) Format ETH balances from wei to ETH strings.
-  const withdrawalVaultBalance = ethers.utils.formatEther(withdrawalVaultBalanceBN);
-  const elRewardsVaultBalance = ethers.utils.formatEther(elRewardsVaultBalanceBN);
+  const withdrawalVaultBalance = formatEther(withdrawalVaultBalanceBN);
+  const elRewardsVaultBalance = formatEther(elRewardsVaultBalanceBN);
 
   // 6) Fetch shares requested to burn
   const [coverShares, nonCoverShares] = await burner.getSharesRequestedToBurn();
   const sharesRequestedToBurnBN = coverShares.add(nonCoverShares);
 
   // 7) Simulate withdrawal batches (placeholder logic)
-  const withdrawalFinalizationBatches = await simulateWithdrawalBatches();
+  const withdrawalFinalizationBatches = [1, 2, 3];
 
   // 8) Assemble the final report object.
   const report: Record<string, any> = {
@@ -126,7 +124,6 @@ export const main = async () => {
     "Shares Requested to Burn": sharesRequestedToBurnBN.toString(),
     "Withdrawal Finalization Batches": JSON.stringify(withdrawalFinalizationBatches),
     "Is Bunker Mode": DEFAULT_IS_BUNKER_MODE,
-    // Removed "Vaults Values" and "Vaults In-Out Deltas"
     "Extra Data Format": DEFAULT_EXTRA_DATA_FORMAT,
     "Extra Data Hash": DEFAULT_EXTRA_DATA_HASH,
     "Extra Data Items Count": DEFAULT_EXTRA_DATA_ITEMS_COUNT,
@@ -137,7 +134,7 @@ export const main = async () => {
   // 9) Build the CSV content.
   const headers = Object.keys(report);
   const headerLine = headers.join(",");
-  const values = headers.map(h => report[h]);
+  const values = headers.map((h) => report[h]);
   const valueLine = values.join(",");
   const csvContent = `${headerLine}\n${valueLine}\n`;
 
@@ -146,12 +143,6 @@ export const main = async () => {
   fs.writeFileSync(outputPath, csvContent);
   console.log(`Report written to ${outputPath}`);
 };
-
-// Add helper function for withdrawal batch simulation
-async function simulateWithdrawalBatches(): Promise<number[]> {
-  // Placeholder implementation - replace with actual logic
-  return [1, 2, 3];
-}
 
 // Only call main() if this file is being run directly.
 if (require.main === module) {
