@@ -26,3 +26,6 @@ coverage/
 ._*
 .Spotlight-V100
 .Trashes 
+
+# Output
+report.csv
