@@ -38,7 +38,7 @@ export const main = async () => {
 
   // Constants and defaults
   const ONE_GWEI = ethers.BigNumber.from("1000000000");
-  const DEFAULT_CL_DIFF = ethers.utils.parseEther("10"); // 10 ETH diff to simulate CL balance change
+  const DEFAULT_CL_DIFF = ethers.utils.parseEther("0"); 
   const DEFAULT_CL_APPEARED_VALIDATORS = ethers.BigNumber.from("0");
   const DEFAULT_WITHDRAWAL_FINALIZATION_BATCHES: number[] = [];
   const DEFAULT_STAKING_MODULE_IDS: number[] = [];
