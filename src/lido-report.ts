@@ -134,11 +134,25 @@ export const main = async () => {
     "Number of Exited Validators by Staking Module": JSON.stringify(DEFAULT_NUM_EXITED_VALIDATORS),
   };
 
-  // 9) Build the CSV content.
+  // Helper function to escape CSV values
+  const escapeCSV = (value: any): string => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    const stringValue = String(value);
+    // If value contains comma, newline, or double quote, wrap in quotes
+    if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
+      // Double up any existing quotes and wrap in quotes
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  // 9) Build the CSV content with proper escaping
   const headers = Object.keys(report);
-  const headerLine = headers.join(",");
-  const values = headers.map(h => report[h]);
-  const valueLine = values.join(",");
+  const headerLine = headers.join(',');
+  const values = headers.map(h => escapeCSV(report[h]));
+  const valueLine = values.join(',');
   const csvContent = `${headerLine}\n${valueLine}\n`;
 
   // 10) Write the CSV content to file.
