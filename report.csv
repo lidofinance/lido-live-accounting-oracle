@@ -1,0 +1,2 @@
+Consensus Version,Reference Slot,CL Balance (Gwei),Number of Validators,Withdrawal Vault Balance (ETH),EL Rewards Vault Balance (ETH),Shares Requested to Burn,Withdrawal Finalization Batches,Is Bunker Mode,Vaults Values,Vaults In-Out Deltas,Extra Data Format,Extra Data Hash,Extra Data Items Count,Staking Module IDs with Newly Exited Validators,Number of Exited Validators by Staking Module
+2,11080799,10000000000,385873,1124.285424191,115.336266193240866241,0,[],false,[],[],0,0x0000000000000000000000000000000000000000000000000000000000000000,0,[],[]
