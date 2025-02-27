@@ -97,7 +97,7 @@ def create_withdrawal_times_table(retry=True):
         schema = [
             {"name": "timestamp", "type": "timestamp"},
             {"name": "amount", "type": "double"},
-            {"name": "finalizationin_days", "type": "double"},
+            {"name": "finalization_in_days", "type": "double"},
             {"name": "weighted_duration_days", "type": "double"}
         ]
         
@@ -114,7 +114,12 @@ def create_withdrawal_times_table(retry=True):
             print(f"Withdrawal times table creation result: {result}")
             return True
         except Exception as e:
-            if "This table already exists" in str(e) and retry:
+            error_str = str(e)
+            # Check if this is the "can't build result" but actually successful case
+            if "Table created successfully" in error_str and "KeyError" in error_str:
+                print("Table was actually created successfully despite error in response parsing")
+                return True
+            if "This table already exists" in error_str and retry:
                 print("Table still exists after deletion, attempting forced recreation...")
                 # Force delete and retry with backoff
                 delete_withdrawal_times_table()

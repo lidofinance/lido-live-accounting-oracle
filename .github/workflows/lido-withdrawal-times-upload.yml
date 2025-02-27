@@ -7,9 +7,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'scripts/calculate_withdrawal_times.py'
-      - '.github/workflows/lido-withdrawal-times-upload.yml'
 
 jobs:
   collect-and-upload:
