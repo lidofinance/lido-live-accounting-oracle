@@ -60,7 +60,8 @@ def delete_withdrawal_times_table():
     except Exception as e:
         print(f"Error deleting withdrawal times table: {e}")
         # Return True even if there's an error - table might not exist yet
-        if "Table does not exist" in str(e):
+        error_str = str(e).lower()
+        if "table does not exist" in error_str or "not found" in error_str:
             print("Table doesn't exist, continuing with creation...")
             return True
         return False
@@ -81,7 +82,8 @@ def delete_oracle_report_table():
     except Exception as e:
         print(f"Error deleting oracle report table: {e}")
         # Return True even if there's an error - table might not exist yet
-        if "Table does not exist" in str(e):
+        error_str = str(e).lower()
+        if "table does not exist" in error_str or "not found" in error_str:
             print("Table doesn't exist, continuing with creation...")
             return True
         return False
