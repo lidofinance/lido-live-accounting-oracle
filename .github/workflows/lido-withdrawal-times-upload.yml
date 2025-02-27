@@ -47,8 +47,33 @@ jobs:
       - name: Upload Withdrawal Times to Dune Analytics
         shell: bash -l {0}
         run: |
-          # Run the upload script with error detection
-          python scripts/upload_to_dune.py --type withdrawal || {
+          # First attempt to upload
+          output=$(python scripts/upload_to_dune.py --type withdrawal 2>&1)
+          echo "$output"
+          
+          # Check if we got a "Table was not found" error
+          if echo "$output" | grep -q "Table was not found"; then
+            echo "Table not found, creating table first..."
+            python scripts/create_dune_tables.py --type withdrawal
+            
+            # Try upload again
+            echo "Attempting upload again after table creation..."
+            python scripts/upload_to_dune.py --type withdrawal || {
+              echo "::error::Upload to Dune Analytics failed after table creation"
+              exit 1
+            }
+          # Check for CSV upload error
+          elif echo "$output" | grep -q "We do not support inserting into tables created from a CSV upload"; then
+            echo "CSV upload error detected, recreating table..."
+            python scripts/create_dune_tables.py --type withdrawal --action recreate
+            
+            # Try upload again
+            echo "Attempting upload again after table recreation..."
+            python scripts/upload_to_dune.py --type withdrawal || {
+              echo "::error::Upload to Dune Analytics failed after table recreation"
+              exit 1
+            }
+          elif echo "$output" | grep -q "Error"; then
             echo "::error::Upload to Dune Analytics failed"
             exit 1
-          } 
+          fi 
