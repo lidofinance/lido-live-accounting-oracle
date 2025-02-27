@@ -10,12 +10,44 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
+# More robust .env loading
+def load_environment():
+    """Load environment variables more reliably"""
+    # Try loading from current directory
+    load_dotenv()
+    
+    # Also try explicit path as fallback
+    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+    load_dotenv(dotenv_path)
+    
+    # Debug information
+    print("Current working directory:", os.getcwd())
+    print("Script directory:", os.path.dirname(os.path.abspath(__file__)))
+    print(".env file exists:", os.path.exists('.env'))
+    print(".env file exists at path:", os.path.exists(dotenv_path))
+    
+    # Check if the API key is available
+    api_key = os.getenv("DUNE_API_KEY")
+    if api_key:
+        print(f"DUNE_API_KEY loaded successfully with length: {len(api_key)}")
+        return True
+    else:
+        print("WARNING: DUNE_API_KEY environment variable is missing or empty")
+        return False
+
+def get_dune_client():
+    """Get Dune client with direct API key handling"""
+    api_key = os.getenv("DUNE_API_KEY")
+    if not api_key:
+        raise ValueError("DUNE_API_KEY environment variable is missing or empty")
+    
+    return DuneClient(api_key)
+
 def delete_withdrawal_times_table():
     """Delete the Withdrawal Times table in Dune Analytics"""
-    load_dotenv()
-    dune = DuneClient.from_env()
-    
     try:
+        dune = get_dune_client()
+        
         # Delete the table
         table_name = config.WITHDRAWAL_TIMES_TABLE
         result = dune.delete_table(
@@ -30,10 +62,9 @@ def delete_withdrawal_times_table():
 
 def delete_oracle_report_table():
     """Delete the Oracle Report table in Dune Analytics"""
-    load_dotenv()
-    dune = DuneClient.from_env()
-    
     try:
+        dune = get_dune_client()
+        
         # Delete the table
         table_name = config.ORACLE_REPORT_TABLE
         result = dune.delete_table(
@@ -48,18 +79,17 @@ def delete_oracle_report_table():
 
 def create_withdrawal_times_table():
     """Create the Withdrawal Times table in Dune Analytics"""
-    load_dotenv()
-    dune = DuneClient.from_env()
-    
-    # Define schema for withdrawal times table
-    schema = [
-        {"name": "timestamp", "type": "timestamp"},
-        {"name": "amount", "type": "double"},
-        {"name": "finalizationin_days", "type": "double"},
-        {"name": "weighted_duration_days", "type": "double"}
-    ]
-    
     try:
+        dune = get_dune_client()
+        
+        # Define schema for withdrawal times table
+        schema = [
+            {"name": "timestamp", "type": "timestamp"},
+            {"name": "amount", "type": "double"},
+            {"name": "finalizationin_days", "type": "double"},
+            {"name": "weighted_duration_days", "type": "double"}
+        ]
+        
         # Create the table
         table_name = config.WITHDRAWAL_TIMES_TABLE
         result = dune.create_table(
@@ -77,32 +107,31 @@ def create_withdrawal_times_table():
 
 def create_oracle_report_table():
     """Create the Oracle Report table in Dune Analytics"""
-    load_dotenv()
-    dune = DuneClient.from_env()
-    
-    # Define schema for oracle report table based on the structure in lido-report.ts
-    schema = [
-        {"name": "process_timestamp", "type": "integer"},
-        {"name": "block_number", "type": "integer"},
-        {"name": "block_timestamp", "type": "integer"},
-        {"name": "block_hash", "type": "string"},
-        {"name": "consensus_version", "type": "integer"},
-        {"name": "reference_slot", "type": "integer"},
-        {"name": "cl_balance_gwei", "type": "string"},
-        {"name": "number_of_validators", "type": "integer"},
-        {"name": "withdrawal_vault_balance_eth", "type": "double"},
-        {"name": "el_rewards_vault_balance_eth", "type": "double"},
-        {"name": "shares_requested_to_burn", "type": "string"},
-        {"name": "withdrawal_finalization_batches", "type": "string"},
-        {"name": "is_bunker_mode", "type": "boolean"},
-        {"name": "extra_data_format", "type": "integer"},
-        {"name": "extra_data_hash", "type": "string"},
-        {"name": "extra_data_items_count", "type": "integer"},
-        {"name": "staking_module_ids_with_newly_exited_validators", "type": "string"},
-        {"name": "number_of_exited_validators_by_staking_module", "type": "string"}
-    ]
-    
     try:
+        dune = get_dune_client()
+        
+        # Define schema for oracle report table based on the structure in lido-report.ts
+        schema = [
+            {"name": "process_timestamp", "type": "integer"},
+            {"name": "block_number", "type": "integer"},
+            {"name": "block_timestamp", "type": "integer"},
+            {"name": "block_hash", "type": "string"},
+            {"name": "consensus_version", "type": "integer"},
+            {"name": "reference_slot", "type": "integer"},
+            {"name": "cl_balance_gwei", "type": "string"},
+            {"name": "number_of_validators", "type": "integer"},
+            {"name": "withdrawal_vault_balance_eth", "type": "double"},
+            {"name": "el_rewards_vault_balance_eth", "type": "double"},
+            {"name": "shares_requested_to_burn", "type": "string"},
+            {"name": "withdrawal_finalization_batches", "type": "string"},
+            {"name": "is_bunker_mode", "type": "boolean"},
+            {"name": "extra_data_format", "type": "integer"},
+            {"name": "extra_data_hash", "type": "string"},
+            {"name": "extra_data_items_count", "type": "integer"},
+            {"name": "staking_module_ids_with_newly_exited_validators", "type": "string"},
+            {"name": "number_of_exited_validators_by_staking_module", "type": "string"}
+        ]
+        
         # Create the table
         table_name = config.ORACLE_REPORT_TABLE
         result = dune.create_table(
@@ -131,12 +160,16 @@ def recreate_oracle_report_table():
     return create_oracle_report_table()
 
 def main():
+
     parser = argparse.ArgumentParser(description='Create Dune Analytics tables for Lido data')
     parser.add_argument('--type', choices=['oracle', 'withdrawal', 'both'], 
                         default='both', help='Type of table to create (default: both)')
     parser.add_argument('--action', choices=['create', 'delete', 'recreate'],
                         default='create', help='Action to perform on the table(s) (default: create)')
     args = parser.parse_args()
+    
+    # Load environment variables
+    load_environment()
     
     # Verify DUNE_API_KEY is present and not empty
     dune_api_key = os.getenv("DUNE_API_KEY")
@@ -147,6 +180,7 @@ def main():
     success = True
     
     # Execute actions based on the type and action arguments
+    
     if args.type in ['withdrawal', 'both']:
         if args.action == 'create':
             if not create_withdrawal_times_table():
