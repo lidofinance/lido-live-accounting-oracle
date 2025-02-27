@@ -21,45 +21,108 @@ print("Looking for .env at:", dotenv_path)
 print(".env file exists at path:", os.path.exists(dotenv_path))
 load_dotenv(dotenv_path)
 
+def process_array_field(value):
+    """Process array-like string fields to ensure proper format"""
+    # Handle both string representations and actual arrays
+    if isinstance(value, str):
+        # If it's already a string representation of an array, return as is
+        if value.startswith('[') and value.endswith(']'):
+            return value
+        else:
+            # Wrap single value in array brackets
+            return f"[{value}]"
+    # Convert actual arrays to string representation
+    elif isinstance(value, (list, tuple)):
+        return str(value)
+    # Return all other values as is
+    return str(value)
+
 def clean_oracle_report_data(df):
-    """Clean and prepare Oracle Report data for upload"""
+    """Clean and prepare the Oracle Report data"""
     print("\nCleaning Oracle Report data")
-    print("Initial DataFrame shape:", df.shape)
-    print("Columns:", df.columns.tolist())
+    print(f"Initial DataFrame shape: {df.shape}")
+    print(f"Columns: {list(df.columns)}")
     
-    # Convert array-like strings to proper string representation
-    for column in df.columns:
-        if df[column].iloc[0] and isinstance(df[column].iloc[0], str) and df[column].iloc[0].startswith('[') and df[column].iloc[0].endswith(']'):
-            print(f"Converting array-like strings in column: {column}")
-            df[column] = df[column].apply(lambda x: str(x))
+    # Create a copy to avoid modifying the original
+    df = df.copy()
     
-    # Convert boolean values to strings
-    bool_columns = df.select_dtypes(include=['bool']).columns
-    for column in bool_columns:
-        print(f"Converting boolean values in column: {column}")
-        df[column] = df[column].astype(str).str.lower()
+    # First, rename columns to match the schema in the Dune table
+    column_mapping = {
+        'Process Timestamp': 'process_timestamp',
+        'Block Number': 'block_number',
+        'Block Timestamp': 'block_timestamp',
+        'Block Hash': 'block_hash',
+        'Consensus Version': 'consensus_version',
+        'Reference Slot': 'reference_slot',
+        'CL Balance (Gwei)': 'cl_balance_gwei',
+        'Number of Validators': 'number_of_validators',
+        'Withdrawal Vault Balance (ETH)': 'withdrawal_vault_balance_eth',
+        'EL Rewards Vault Balance (ETH)': 'el_rewards_vault_balance_eth',
+        'Shares Requested to Burn': 'shares_requested_to_burn',
+        'Withdrawal Finalization Batches': 'withdrawal_finalization_batches',
+        'Is Bunker Mode': 'is_bunker_mode',
+        'Extra Data Format': 'extra_data_format',
+        'Extra Data Hash': 'extra_data_hash',
+        'Extra Data Items Count': 'extra_data_items_count',
+        'Staking Module IDs with Newly Exited Validators': 'staking_module_ids_with_newly_exited_validators',
+        'Number of Exited Validators by Staking Module': 'number_of_exited_validators_by_staking_module'
+    }
     
-    print("Final DataFrame shape:", df.shape)
+    df = df.rename(columns=column_mapping)
+    
+    # Process array-like columns (convert string representations to JSON-compatible strings)
+    array_columns = [
+        'withdrawal_finalization_batches',
+        'staking_module_ids_with_newly_exited_validators',
+        'number_of_exited_validators_by_staking_module'
+    ]
+    
+    for col in array_columns:
+        if col in df.columns:
+            print(f"Converting array-like strings in column: {column_mapping.get(col, col)}")
+            df[col] = df[col].apply(lambda x: process_array_field(x) if pd.notnull(x) else x)
+    
+    # Process boolean columns
+    boolean_columns = ['is_bunker_mode']
+    for col in boolean_columns:
+        if col in df.columns:
+            print(f"Converting boolean values in column: {column_mapping.get(col, col)}")
+            df[col] = df[col].apply(lambda x: str(x).lower() == 'true' if pd.notnull(x) else None)
+    
+    print(f"Final DataFrame shape: {df.shape}")
     return df
 
 def clean_withdrawal_times_data(df):
     """Clean and prepare Withdrawal Times data for upload"""
     print("\nCleaning Withdrawal Times data")
-    print("Initial DataFrame shape:", df.shape)
-    print("Columns:", df.columns.tolist())
+    print(f"Initial DataFrame shape: {df.shape}")
+    print(f"Columns: {list(df.columns)}")
+    
+    # Create a copy to avoid modifying the original
+    df = df.copy()
+    
+    # First, rename columns to match the schema in the Dune table
+    column_mapping = {
+        'Timestamp': 'timestamp',
+        'Amount': 'amount',
+        'FinalizationIn (days)': 'finalization_in_days',
+        'Weighted Duration (days)': 'weighted_duration_days'
+    }
+    
+    df = df.rename(columns=column_mapping)
     
     # Convert any None values to empty strings
     df = df.fillna('')
     
     # Ensure all numeric columns are properly formatted
-    numeric_columns = ['Amount', 'FinalizationIn (days)', 'Weighted Duration (days)']
+    numeric_columns = ['amount', 'finalization_in_days', 'weighted_duration_days']
     for column in numeric_columns:
         if column in df.columns:
             print(f"Formatting numeric column: {column}")
             # Convert to string while preserving numeric values
             df[column] = df[column].apply(lambda x: str(x) if x != '' else '')
     
-    print("Final DataFrame shape:", df.shape)
+    print(f"Final DataFrame shape: {df.shape}")
     return df
 
 def upload_to_dune(df, description, table_name):
