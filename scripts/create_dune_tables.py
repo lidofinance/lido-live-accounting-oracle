@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import time
 from dune_client.client import DuneClient
 from dotenv import load_dotenv
 
@@ -58,6 +59,10 @@ def delete_withdrawal_times_table():
         return True
     except Exception as e:
         print(f"Error deleting withdrawal times table: {e}")
+        # Return True even if there's an error - table might not exist yet
+        if "Table does not exist" in str(e):
+            print("Table doesn't exist, continuing with creation...")
+            return True
         return False
 
 def delete_oracle_report_table():
@@ -75,9 +80,13 @@ def delete_oracle_report_table():
         return True
     except Exception as e:
         print(f"Error deleting oracle report table: {e}")
+        # Return True even if there's an error - table might not exist yet
+        if "Table does not exist" in str(e):
+            print("Table doesn't exist, continuing with creation...")
+            return True
         return False
 
-def create_withdrawal_times_table():
+def create_withdrawal_times_table(retry=True):
     """Create the Withdrawal Times table in Dune Analytics"""
     try:
         dune = get_dune_client()
@@ -92,20 +101,39 @@ def create_withdrawal_times_table():
         
         # Create the table
         table_name = config.WITHDRAWAL_TIMES_TABLE
-        result = dune.create_table(
-            namespace=config.DUNE_NAMESPACE,
-            table_name=table_name,
-            description="Historical stETH withdrawal times by amount",
-            schema=schema,
-            is_private=False
-        )
-        print(f"Withdrawal times table creation result: {result}")
-        return True
+        try:
+            result = dune.create_table(
+                namespace=config.DUNE_NAMESPACE,
+                table_name=table_name,
+                description="Historical stETH withdrawal times by amount",
+                schema=schema,
+                is_private=False
+            )
+            print(f"Withdrawal times table creation result: {result}")
+            return True
+        except Exception as e:
+            if "This table already exists" in str(e) and retry:
+                print("Table still exists after deletion, attempting forced recreation...")
+                # Force delete and retry with backoff
+                delete_withdrawal_times_table()
+                print("Waiting 5 seconds for deletion to propagate...")
+                time.sleep(5)  # Wait for deletion to propagate
+                # Retry with different table name
+                new_table_name = f"{table_name}_{int(time.time())}"
+                print(f"Creating table with alternative name: {new_table_name}")
+                
+                # Update the config with the new name
+                config.WITHDRAWAL_TIMES_TABLE = new_table_name
+                
+                # Retry without allowing further retries to prevent infinite loops
+                return create_withdrawal_times_table(retry=False)
+            else:
+                raise
     except Exception as e:
         print(f"Error creating withdrawal times table: {e}")
         return False
 
-def create_oracle_report_table():
+def create_oracle_report_table(retry=True):
     """Create the Oracle Report table in Dune Analytics"""
     try:
         dune = get_dune_client()
@@ -134,15 +162,34 @@ def create_oracle_report_table():
         
         # Create the table
         table_name = config.ORACLE_REPORT_TABLE
-        result = dune.create_table(
-            namespace=config.DUNE_NAMESPACE,
-            table_name=table_name,
-            description="Lido Oracle Report Data",
-            schema=schema,
-            is_private=False
-        )
-        print(f"Oracle report table creation result: {result}")
-        return True
+        try:
+            result = dune.create_table(
+                namespace=config.DUNE_NAMESPACE,
+                table_name=table_name,
+                description="Lido Oracle Report Data",
+                schema=schema,
+                is_private=False
+            )
+            print(f"Oracle report table creation result: {result}")
+            return True
+        except Exception as e:
+            if "This table already exists" in str(e) and retry:
+                print("Table still exists after deletion, attempting forced recreation...")
+                # Force delete and retry with backoff
+                delete_oracle_report_table()
+                print("Waiting 5 seconds for deletion to propagate...")
+                time.sleep(5)  # Wait for deletion to propagate
+                # Retry with different table name
+                new_table_name = f"{table_name}_{int(time.time())}"
+                print(f"Creating table with alternative name: {new_table_name}")
+                
+                # Update the config with the new name
+                config.ORACLE_REPORT_TABLE = new_table_name
+                
+                # Retry without allowing further retries to prevent infinite loops
+                return create_oracle_report_table(retry=False)
+            else:
+                raise
     except Exception as e:
         print(f"Error creating oracle report table: {e}")
         return False
@@ -150,17 +197,22 @@ def create_oracle_report_table():
 def recreate_withdrawal_times_table():
     """Delete and recreate the Withdrawal Times table"""
     print("Recreating withdrawal times table...")
-    delete_withdrawal_times_table()
-    return create_withdrawal_times_table()
+    if delete_withdrawal_times_table():
+        print("Waiting 3 seconds for deletion to propagate...")
+        time.sleep(3)  # Add a delay to allow deletion to propagate
+        return create_withdrawal_times_table()
+    return False
 
 def recreate_oracle_report_table():
     """Delete and recreate the Oracle Report table"""
     print("Recreating oracle report table...")
-    delete_oracle_report_table()
-    return create_oracle_report_table()
+    if delete_oracle_report_table():
+        print("Waiting 3 seconds for deletion to propagate...")
+        time.sleep(3)  # Add a delay to allow deletion to propagate
+        return create_oracle_report_table()
+    return False
 
 def main():
-
     parser = argparse.ArgumentParser(description='Create Dune Analytics tables for Lido data')
     parser.add_argument('--type', choices=['oracle', 'withdrawal', 'both'], 
                         default='both', help='Type of table to create (default: both)')
@@ -180,7 +232,6 @@ def main():
     success = True
     
     # Execute actions based on the type and action arguments
-    
     if args.type in ['withdrawal', 'both']:
         if args.action == 'create':
             if not create_withdrawal_times_table():
