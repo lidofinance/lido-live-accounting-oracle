@@ -111,6 +111,18 @@ def clean_withdrawal_times_data(df):
     
     df = df.rename(columns=column_mapping)
     
+    # Convert timestamp from Unix epoch to ISO format if it's in numeric format
+    if 'timestamp' in df.columns:
+        # Try to detect if the timestamp is in Unix epoch format (integer)
+        sample_value = df['timestamp'].iloc[0] if not df.empty else None
+        if sample_value and str(sample_value).isdigit() and len(str(int(sample_value))) >= 10:
+            print("Converting Unix timestamp to ISO format datetime...")
+            # Convert Unix timestamp (seconds since epoch) to datetime
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+            # Format as ISO 8601 string for Dune
+            df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"Sample converted timestamp: {df['timestamp'].iloc[0]}")
+    
     # Convert any None values to empty strings
     df = df.fillna('')
     
