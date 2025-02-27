@@ -29,3 +29,9 @@ coverage/
 
 # Output
 report.csv
+
+# Cache
+__pycache__/
+
+# Any output files
+*.csv

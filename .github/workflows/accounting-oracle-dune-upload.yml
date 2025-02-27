@@ -54,4 +54,4 @@ jobs:
 
       - name: Upload to Dune Analytics
         shell: bash -l {0}
-        run: python scripts/upload_to_dune.py 
+        run: python scripts/upload_to_dune.py --type oracle 
