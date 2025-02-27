@@ -47,12 +47,8 @@ jobs:
       - name: Upload Withdrawal Times to Dune Analytics
         shell: bash -l {0}
         run: |
-          # Run the upload script and capture its output
-          output=$(python scripts/upload_to_dune.py --type withdrawal --table-name dune.asot.dataset_historical_steth_withdrawal_times_by_amount 2>&1)
-          echo "$output"
-          
-          # Check if the output contains error messages and fail the workflow if it does
-          if echo "$output" | grep -q "Error"; then
+          # Run the upload script with error detection
+          python scripts/upload_to_dune.py --type withdrawal || {
             echo "::error::Upload to Dune Analytics failed"
             exit 1
-          fi 
+          } 
