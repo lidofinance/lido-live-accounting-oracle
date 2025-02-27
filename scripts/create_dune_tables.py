@@ -97,7 +97,7 @@ def create_withdrawal_times_table(retry=True):
         schema = [
             {"name": "timestamp", "type": "timestamp"},
             {"name": "amount", "type": "double"},
-            {"name": "finalization_in_days", "type": "double"},
+            {"name": "finalizationin_days", "type": "double"},
             {"name": "weighted_duration_days", "type": "double"}
         ]
         

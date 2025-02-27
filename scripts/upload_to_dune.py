@@ -105,7 +105,7 @@ def clean_withdrawal_times_data(df):
     column_mapping = {
         'Timestamp': 'timestamp',
         'Amount': 'amount',
-        'FinalizationIn (days)': 'finalization_in_days',
+        'FinalizationIn (days)': 'finalizationin_days',
         'Weighted Duration (days)': 'weighted_duration_days'
     }
     
@@ -115,7 +115,7 @@ def clean_withdrawal_times_data(df):
     df = df.fillna('')
     
     # Ensure all numeric columns are properly formatted
-    numeric_columns = ['amount', 'finalization_in_days', 'weighted_duration_days']
+    numeric_columns = ['amount', 'finalizationin_days', 'weighted_duration_days']
     for column in numeric_columns:
         if column in df.columns:
             print(f"Formatting numeric column: {column}")
