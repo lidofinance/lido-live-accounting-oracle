@@ -1,0 +1,55 @@
+name: Lido Oracle Report Collection and Upload
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Runs every 30 minutes
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  collect-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup Miniconda Environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          python-version: '3.11'
+
+      - name: Configure Environment Variables
+        run: |
+          echo "RPC_URL=${{ secrets.RPC_URL }}" >> .env
+          echo "HASH_CONSENSUS_ADDRESS=${{ vars.HASH_CONSENSUS_ADDRESS }}" >> .env
+          echo "LIDO_ADDRESS=${{ vars.LIDO_ADDRESS }}" >> .env
+          echo "ACCOUNTING_ORACLE_ADDRESS=${{ vars.ACCOUNTING_ORACLE_ADDRESS }}" >> .env
+          echo "WITHDRAWAL_VAULT_ADDRESS=${{ vars.WITHDRAWAL_VAULT_ADDRESS }}" >> .env
+          echo "EL_REWARDS_VAULT_ADDRESS=${{ vars.EL_REWARDS_VAULT_ADDRESS }}" >> .env
+          echo "BURNER_ADDRESS=${{ vars.BURNER_ADDRESS }}" >> .env
+          echo "DUNE_API_KEY=${{ secrets.DUNE_API_KEY }}" >> .env
+
+      - name: Install Python Dependencies
+        shell: bash -l {0}
+        run: |
+          conda install -y -c conda-forge pandas requests python-dotenv
+          pip install dune-client
+
+      - name: Install Node.js Dependencies
+        run: npm install
+
+      - name: Generate Oracle Report Data
+        run: npm run report
+
+      - name: Upload Oracle Report to Dune Analytics
+        shell: bash -l {0}
+        run: python scripts/upload_to_dune.py --type oracle 

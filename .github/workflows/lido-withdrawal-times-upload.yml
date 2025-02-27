@@ -1,0 +1,49 @@
+name: Lido Withdrawal Times Collection and Upload
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Runs every 15 minutes
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/calculate_withdrawal_times.py'
+      - '.github/workflows/lido-withdrawal-times-upload.yml'
+
+jobs:
+  collect-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Setup Miniconda Environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          python-version: '3.11'
+
+      - name: Configure Environment Variables
+        run: |
+          echo "DUNE_API_KEY=${{ secrets.DUNE_API_KEY }}" > .env
+
+      - name: Install Python Dependencies
+        shell: bash -l {0}
+        run: |
+          conda install -y -c conda-forge pandas requests python-dotenv numpy
+          pip install dune-client
+
+      - name: Generate Withdrawal Times Data
+        shell: bash -l {0}
+        run: python scripts/calculate_withdrawal_times.py
+      
+      - name: Upload Withdrawal Times to Dune Analytics
+        shell: bash -l {0}
+        run: python scripts/upload_to_dune.py --type withdrawal 

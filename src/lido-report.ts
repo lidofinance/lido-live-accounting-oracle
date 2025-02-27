@@ -124,6 +124,7 @@ export const main = async () => {
 
   // 8) Assemble the final report object.
   const report: Record<string, any> = {
+    "Process Timestamp": Math.floor(Date.now() / 1000).toString(),
     "Block Number": latestBlock.number.toString(),
     "Block Timestamp": latestBlock.timestamp.toString(),
     "Block Hash": latestBlock.hash,

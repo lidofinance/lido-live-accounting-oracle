@@ -63,34 +63,39 @@ def clean_withdrawal_times_data(df):
     return df
 
 def upload_to_dune(df, description, table_name):
-    """Upload DataFrame to Dune Analytics as a dataset"""
+    """Upload DataFrame to Dune Analytics by inserting into an existing table"""
     print(f"Initializing Dune client for {table_name}...")
     dune = DuneClient.from_env()
     
     # Convert DataFrame to CSV string
     print("Converting DataFrame to CSV...")
-    csv_data = df.to_csv(index=False)
+    csv_path = f"temp_{table_name}.csv"
+    df.to_csv(csv_path, index=False)
+    
+    # Get namespace from config
+    namespace = config.DUNE_NAMESPACE
     
     # Upload to Dune
-    print(f"Uploading data to Dune (table: {table_name})...")
-    result = dune.upload_csv(
-        data=csv_data,
-        description=description,
-        table_name=table_name,
-        is_private=False
-    )
-    
-    if isinstance(result, bool):
-        if result:
-            print(f"Successfully uploaded {table_name} data to Dune (upload method returned True).")
-        else:
-            print(f"Failed to upload {table_name} data to Dune (upload method returned False).")
-    elif hasattr(result, "table_name"):
-        print(f"Successfully uploaded data to Dune. Table name: {result.table_name}")
-    else:
-        print("Upload completed, but the result is not in the expected format.")
-    
-    return result
+    print(f"Inserting data into Dune table: {namespace}.{table_name}...")
+    try:
+        with open(csv_path, "rb") as data:
+            result = dune.insert_table(
+                namespace=namespace,
+                table_name=table_name,
+                data=data,
+                content_type="text/csv"
+            )
+        
+        print(f"Successfully inserted data into {namespace}.{table_name}")
+        
+        # Clean up temp file
+        if os.path.exists(csv_path):
+            os.remove(csv_path)
+            
+        return True
+    except Exception as e:
+        print(f"Error inserting data: {str(e)}")
+        return False
 
 def upload_oracle_report():
     """Upload the Oracle Report data to Dune"""
